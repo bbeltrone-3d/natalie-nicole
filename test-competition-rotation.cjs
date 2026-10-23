@@ -63,7 +63,7 @@ test('IVY cutoff is October 23 EDT / October 24 UTC, never a bare date',()=>{
  assert.equal(app.elements['hero-image'].src,'gallery/11_outdoor_tree.jpg');
  assert.match(app.document.title,/Natural Beauty/);
  assert.equal(app.elements['competition-list'].children.length,6);
- assert.match(app.elements['competition-list'].children[1].textContent,/Estimated close passed/);
+ assert.match(app.elements['competition-list'].children[1].textContent,/Closed Oct 23/);
 });
 test('equal-time rounds keep original order; all expired rounds are skipped',()=>{
  const cases=[
@@ -75,14 +75,24 @@ test('equal-time rounds keep original order; all expired rounds are skipped',()=
  ];
  for(const [instant,name] of cases) assert.equal(boot(instant).priority(),name);
 });
-test('estimated deadlines are not presented as verified cutoffs',()=>{
+test('IVY is confirmed; other countdown-derived deadlines remain estimates',()=>{
  const app=boot('2026-10-23T18:54:00Z');
- assert.match(app.elements.deadline.textContent,/Expected close.*Oct 23.*9:00 PM EDT.*estimate/);
- for(const row of app.config.competitions){assert.equal(row.deadlineVerified,false);assert.equal(row.dateIso,null);}
+ assert.match(app.elements.deadline.textContent,/^Closes.*Oct 23.*9:00 PM EDT/);
+ assert.doesNotMatch(app.elements.deadline.textContent,/estimate/);
+ const ivy=app.config.competitions.find(r=>r.name==='IVY Swimwear');
+ assert.equal(ivy.deadlineVerified,true);
+ assert.equal(ivy.dateIso,'2026-10-23T21:00:00-04:00');
+ assert.equal(ivy.estimatedCloseIso,undefined);
+ for(const row of app.config.competitions.filter(r=>r!==ivy)){
+  assert.equal(row.deadlineVerified,false);assert.equal(row.dateIso,null);
+ }
+ app.advance('2026-10-24T01:00:00Z');
+ assert.match(app.elements.deadline.textContent,/Expected close.*estimate/);
 });
 test('a subsequently verified absolute deadline supersedes an estimate',()=>{
  const app=boot('2026-10-24T01:00:00Z',c=>{
   const ivy=c.competitions.find(r=>r.name==='IVY Swimwear');
+  ivy.estimatedCloseIso='2026-10-23T21:00:00-04:00';
   ivy.dateIso='2026-10-23T22:00:00-04:00';ivy.deadlineVerified=true;
  });
  assert.equal(app.priority(),'IVY Swimwear');
